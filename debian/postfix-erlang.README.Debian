@@ -1,0 +1,17 @@
+Point postfix to the Erlang map like you'd do with other dictionary types.
+For example,
+
+    virtual_alias_maps = proxy:erlang:/etc/postfix/virtual_alias_maps.cf
+
+The configuration file requires four parameters:
+
+    node = mynode@mymachine
+    cookie = chocolate
+    module = mydb
+    function = aliases
+
+With this setup, postfix-erlang will connect to "mynode@mymachine" using
+"chocolate" as the magic cookie, and call "mydb:aliases/1". The argument will
+be passed to Erlang as a bit string. The specified function should return
+{ok, Bitstring} on success or not_found on failure. Currently there is no way
+to choose different function arguments or alternative return formats.

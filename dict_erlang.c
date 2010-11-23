@@ -240,12 +240,11 @@ dict_erlang_lookup(DICT *dict, const char *key)
         key = lowercase(vstring_str(dict->fold_buf));
     }
 
-    /* XXX this is segfaulting. */
-    /*if (db_common_check_domain(dict_erlang->ctx, key) == 0) {
+    if (db_common_check_domain(dict_erlang->ctx, key) == 0) {
         if (msg_verbose)
             msg_info("%s: Skipping lookup of '%s'", myname, key);
         return 0;
-    }*/
+    }
 
 #define INIT_VSTR(buf, len) do { \
     if (buf == 0) \
@@ -289,6 +288,7 @@ erlang_parse_config(DICT_ERLANG *dict_erlang, const char *erlangcf)
     dict_erlang->fun = cfg_get_str(p, "function", "", 1, 0);
 
     dict_erlang->ctx = NULL;
+    db_common_parse(&dict_erlang->dict, &dict_erlang->ctx, "%s", 1);
     db_common_parse_domain(p, dict_erlang->ctx);
 
     if (db_common_dict_partial(dict_erlang->ctx))

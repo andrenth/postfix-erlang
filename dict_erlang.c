@@ -187,6 +187,50 @@ decode_bitstring_list(DICT_ERLANG *dict_erlang, const char *key,
 }
 
 static int
+handle_response(DICT_ERLANG *dict_erlang, const char *key,
+                struct query_data *qdp, char **ret)
+{
+    int err, index = 0;
+    int res_type, res_size;
+
+    err = ei_get_type(qdp->res.buff, &index, &res_type, &res_size);
+    if (err != 0) {
+        query_cleanup(qdp, "ei_get_type");
+        return err;
+    }
+
+    switch (res_type) {
+    case ERL_ATOM_EXT:
+        err = decode_atom(qdp, &index, "not_found");
+        if (err == -1)
+            return err;
+        query_cleanup(qdp, NULL);
+        return 0;
+    case ERL_SMALL_TUPLE_EXT:
+    case ERL_LARGE_TUPLE_EXT: {
+        int arity;
+        err = decode_tuple(qdp, &index, 2);
+        if (err == -1)
+            return err;
+        err = decode_atom(qdp, &index, "ok");
+        if (err == -1)
+            return err;
+        arity = decode_bitstring_list(dict_erlang, key, qdp, &index);
+        if (arity <= 0)
+            return arity;
+        *ret = mystrdup(qdp->ret);
+        query_cleanup(qdp, NULL);
+        return 1;
+    }
+    default:
+        query_cleanup(qdp, "unexpected response type");
+        return -1;
+    }
+
+    /* NOTREACHED */
+}
+
+static int
 erlang_query(DICT_ERLANG *dict_erlang, const char *key, char *node,
              char *cookie, char *mod, char *fun, char **ret)
 {
@@ -225,44 +269,7 @@ erlang_query(DICT_ERLANG *dict_erlang, const char *key, char *node,
         return err;
     }
 
-    index = 0;
-    err = ei_get_type(qd.res.buff, &index, &res_type, &res_size);
-    if (err != 0) {
-        query_cleanup(&qd, "ei_get_type");
-        return err;
-    }
-
-    switch (res_type) {
-    case ERL_ATOM_EXT:
-        err = decode_atom(&qd, &index, "not_found");
-        if (err == -1)
-            return err;
-        query_cleanup(&qd, NULL);
-        return 0;
-    case ERL_SMALL_TUPLE_EXT:
-    case ERL_LARGE_TUPLE_EXT: {
-        int i, arity;
-        long len;
-        char **rets;
-        err = decode_tuple(&qd, &index, 2);
-        if (err == -1)
-            return err;
-        err = decode_atom(&qd, &index, "ok");
-        if (err == -1)
-            return err;
-        arity = decode_bitstring_list(dict_erlang, key, &qd, &index);
-        if (arity <= 0)
-            return arity;
-        *ret = mystrdup(qd.ret);
-        query_cleanup(&qd, NULL);
-        return 1;
-    }
-    default:
-        query_cleanup(&qd, "unexpected response type");
-        return -1;
-    }
-
-    /* NOTREACHED */
+    return handle_response(dict_erlang, key, &qd, ret);
 }
 
 static const char *

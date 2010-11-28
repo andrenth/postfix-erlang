@@ -57,6 +57,6 @@ The configuration file requires four parameters:
 With this setup, postfix-erlang will connect to <tt>mynode@mymachine</tt> using
 <tt>chocolate</tt> as the magic cookie, and call <tt>mydb:aliases/1</tt>. The
 argument will be passed to Erlang as a bit string. The specified function
-should return <tt>{ok, Bitstring}</tt> on success or <tt>not_found</tt> on
-failure. Currently there is no way to choose different function arguments or
+should return <tt>{ok, [Bitstring, ...]}</tt> on success or <tt>not_found</tt>
+on failure. Currently there is no way to choose different function arguments or
 alternative return formats.

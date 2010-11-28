@@ -73,11 +73,7 @@ alloc_buffer(struct query_data *qdp, int *index)
         return err;
     }
     qdp->ret = mymalloc(size + 1);
-    if (qdp->ret == NULL) {
-        query_cleanup(qdp, "cannot allocate buffer");
-        return -1;
-    }
-    return size;
+    return size + 1;
 }
 
 static int
@@ -87,14 +83,12 @@ decode_atom(struct query_data *qdp, int *index, const char *cmp)
     int size;
 
     size = alloc_buffer(qdp, index);
-    if (size < 0)
-        return size;
     err = ei_decode_atom(qdp->res.buff, index, qdp->ret);
     if (err != 0) {
         query_cleanup(qdp, "cannot decode atom");
         return err;
     }
-    qdp->ret[size] = '\0';
+    qdp->ret[size - 1] = '\0';
     if (strcmp(qdp->ret, cmp) != 0) {
         char *warn = mymalloc(size+10);
         snprintf(warn, size+10, "bad atom: %s", qdp->ret);
@@ -132,15 +126,64 @@ decode_bitstring(struct query_data *qdp, int *index)
     long len;
 
     size = alloc_buffer(qdp, index);
-    if (size < 0)
-        return size;
     err = ei_decode_binary(qdp->res.buff, index, qdp->ret, &len);
     if (err < 0) {
         query_cleanup(qdp, "cannot decode response bitstring");
         return err;
     }
-    qdp->ret[size] = '\0';
-    return 0;
+    qdp->ret[size-1] = '\0';
+    return size;
+}
+
+static int
+decode_list(struct query_data *qdp, int *index)
+{
+    int err;
+    int arity;
+
+    err = ei_decode_list_header(qdp->res.buff, index, &arity);
+    if (err < 0) {
+        query_cleanup(qdp, "cannot decode response list");
+        return err;
+    }
+    return arity;
+}
+
+static int
+decode_bitstring_list(DICT_ERLANG *dict_erlang, const char *key,
+                      struct query_data *qdp, int *index)
+{
+    int i;
+    int arity;
+    static VSTRING *res;
+
+    arity = decode_list(qdp, index);
+    if (arity < 0)
+        return arity;
+    if (arity == 0) {
+        msg_warn("found alias with no destinations");
+        return 0;
+    }
+
+#define INIT_VSTR(buf, len)           \
+    do {                              \
+        if (buf == 0)                 \
+            buf = vstring_alloc(len); \
+        VSTRING_RESET(buf);           \
+        VSTRING_TERMINATE(buf);       \
+    } while (0)
+
+    INIT_VSTR(res, 10);
+
+    for (i = 0; i < arity; i++) {
+        int size = decode_bitstring(qdp, index);
+        if (size <= 0)
+            return -1;
+        db_common_expand(dict_erlang->ctx, "%s", qdp->ret, key, res, 0);
+        myfree(qdp->ret);
+    }
+    qdp->ret = vstring_str(res);
+    return arity;
 }
 
 static int
@@ -198,17 +241,18 @@ erlang_query(DICT_ERLANG *dict_erlang, const char *key, char *node,
         return 0;
     case ERL_SMALL_TUPLE_EXT:
     case ERL_LARGE_TUPLE_EXT: {
-        int arity;
+        int i, arity;
         long len;
+        char **rets;
         err = decode_tuple(&qd, &index, 2);
         if (err == -1)
             return err;
         err = decode_atom(&qd, &index, "ok");
         if (err == -1)
             return err;
-        err = decode_bitstring(&qd, &index);
-        if (err == -1)
-            return err;
+        arity = decode_bitstring_list(dict_erlang, key, &qd, &index);
+        if (arity <= 0)
+            return arity;
         *ret = mystrdup(qd.ret);
         query_cleanup(&qd, NULL);
         return 1;

@@ -49,12 +49,12 @@ For example,
 
 The configuration file requires four parameters:
 
-    node = mynode@mymachine
+    nodes = mynode@myhost, mynode@myotherhost
     cookie = chocolate
     module = mydb
     function = aliases
 
-With this setup, postfix-erlang will connect to <tt>mynode@mymachine</tt> using
+With this setup, postfix-erlang will connect to <tt>mynode@myhost</tt> using
 <tt>chocolate</tt> as the magic cookie, and call <tt>mydb:aliases/1</tt>. The
 argument will be passed to Erlang as a bit string. The specified function
 should return <tt>{ok, [Bitstring, ...]}</tt> on success or <tt>not_found</tt>

@@ -29,10 +29,11 @@ typedef struct {
     DICT dict;
     CFG_PARSER *parser;
     void *ctx;
-    char *node;
+    ARGV *nodes;
     char *cookie;
     char *mod;
     char *fun;
+    int active_node;
 } DICT_ERLANG;
 
 static void
@@ -209,9 +210,10 @@ handle_response(DICT_ERLANG *dict_erlang, const char *key,
 }
 
 static int
-erlang_query(DICT_ERLANG *dict_erlang, const char *key, char *node,
+erlang_query(DICT_ERLANG *dict_erlang, const char *key, ARGV *nodes,
              char *cookie, char *mod, char *fun, char **res)
 {
+    int cur_node, last_node;
     int err, index;
     int res_version, res_type, res_size;
     int fd;
@@ -225,7 +227,19 @@ erlang_query(DICT_ERLANG *dict_erlang, const char *key, char *node,
         return -1;
     }
 
-    fd = ei_connect(&ec, node);
+    cur_node = dict_erlang->active_node;
+    last_node = (cur_node - 1) % nodes->argc;
+    do {
+        fd = ei_connect(&ec, nodes->argv[cur_node]);
+        if (fd >= 0) {
+            dict_erlang->active_node = cur_node;
+            if (msg_verbose)
+                msg_info("connected to node %s", nodes->argv[cur_node]);
+            break;
+        }
+        cur_node = (cur_node + 1) % nodes->argc;
+    } while (cur_node != dict_erlang->active_node);
+
     if (fd < 0) {
         msg_warn_erl("ei_connect");
         return -1;
@@ -264,7 +278,7 @@ dict_erlang_lookup(DICT *dict, const char *key)
     dict_errno = 0;
 
     if (dict->flags & DICT_FLAG_FOLD_FIX) {
-        if (dict->fold_buf == 0)
+        if (dict->fold_buf == NULL)
             dict->fold_buf = vstring_alloc(10);
         vstring_strcpy(dict->fold_buf, key);
         key = lowercase(vstring_str(dict->fold_buf));
@@ -276,7 +290,7 @@ dict_erlang_lookup(DICT *dict, const char *key)
         return 0;
     }
 
-    ret = erlang_query(dict_erlang, key, dict_erlang->node,
+    ret = erlang_query(dict_erlang, key, dict_erlang->nodes,
                        dict_erlang->cookie, dict_erlang->mod,
                        dict_erlang->fun, &res);
     switch (ret) {
@@ -298,9 +312,14 @@ static void
 erlang_parse_config(DICT_ERLANG *dict_erlang, const char *erlangcf)
 {
     CFG_PARSER *p;
+    char *nodes;
 
     p = dict_erlang->parser = cfg_parser_alloc(erlangcf);
-    dict_erlang->node = cfg_get_str(p, "node", "", 3, 0);
+
+    nodes = cfg_get_str(p, "nodes", "", 0, 0);
+    dict_erlang->nodes = argv_split(nodes, " ,\t\r\n");
+    myfree(nodes);
+
     dict_erlang->cookie = cfg_get_str(p, "cookie", "", 1, 0);
     dict_erlang->mod = cfg_get_str(p, "module", "", 1, 0);
     dict_erlang->fun = cfg_get_str(p, "function", "", 1, 0);
@@ -323,7 +342,8 @@ dict_erlang_close(DICT *dict)
     DICT_ERLANG *dict_erlang = (DICT_ERLANG *)dict;
 
     cfg_parser_free(dict_erlang->parser);
-    myfree(dict_erlang->node);
+    if (dict_erlang->nodes)
+        argv_free(dict_erlang->nodes);
     myfree(dict_erlang->cookie);
     myfree(dict_erlang->mod);
     myfree(dict_erlang->fun);
@@ -347,7 +367,18 @@ dict_erlang_open(const char *key, int open_flags, int dict_flags)
     dict_erlang->dict.lookup = dict_erlang_lookup;
     dict_erlang->dict.close = dict_erlang_close;
     dict_erlang->dict.flags = dict_flags;
+
     erlang_parse_config(dict_erlang, key);
+    if (dict_erlang->nodes->argc == 0)
+        msg_fatal("no erlang nodes specified");
+    dict_erlang->active_node = 0;
+
+    if (dict_erlang->cookie == NULL)
+        msg_fatal("no erlang cookie specified");
+    if (dict_erlang->mod == NULL)
+        msg_fatal("no erlang module specified");
+    if (dict_erlang->fun == NULL)
+        msg_fatal("no erlang function specified");
 
     return (DICT_DEBUG(&dict_erlang->dict));
 }

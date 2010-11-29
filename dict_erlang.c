@@ -35,134 +35,116 @@ typedef struct {
     char *fun;
 } DICT_ERLANG;
 
-struct query_data {
-    int fd;
-    char *ret;
-    ei_x_buff msg;
-    ei_x_buff res;
-};
-
 static void
 msg_warn_erl(char *s)
 {
     msg_warn("%s: %s", s, strerror(erl_errno));
 }
 
-static void
-query_cleanup(struct query_data *qdp, char *warn)
-{
-    if (warn != NULL)
-        msg_warn_erl(warn);
-    if (qdp->fd != -1)
-        close(qdp->fd);
-    if (qdp->ret != NULL)
-        myfree(qdp->ret);
-    ei_x_free(&qdp->msg);
-    ei_x_free(&qdp->res);
-}
-
-static int
-alloc_buffer(struct query_data *qdp, int *index)
+static char *
+alloc_buffer(ei_x_buff *eip, int *index, int *sizep)
 {
     int err;
     int type, size;
 
-    err = ei_get_type(qdp->res.buff, index, &type, &size);
+    err = ei_get_type(eip->buff, index, &type, &size);
     if (err < 0) {
-        query_cleanup(qdp, "cannot get term size");
-        return err;
+        msg_warn("cannot get term size");
+        return NULL;
     }
-    qdp->ret = mymalloc(size + 1);
-    return size + 1;
+    *sizep = size + 1;
+    return mymalloc(*sizep);
 }
 
 static int
-decode_atom(struct query_data *qdp, int *index, const char *cmp)
+decode_atom(ei_x_buff *eip, int *index, const char *cmp)
 {
     int err;
     int size;
+    int ret;
+    char *buf;
 
-    size = alloc_buffer(qdp, index);
-    err = ei_decode_atom(qdp->res.buff, index, qdp->ret);
+    buf = alloc_buffer(eip, index, &size);
+    err = ei_decode_atom(eip->buff, index, buf);
     if (err != 0) {
-        query_cleanup(qdp, "cannot decode atom");
+        msg_warn("cannot decode atom");
         return err;
     }
-    qdp->ret[size - 1] = '\0';
-    if (strcmp(qdp->ret, cmp) != 0) {
-        char *warn = mymalloc(size+10);
-        snprintf(warn, size+10, "bad atom: %s", qdp->ret);
-        query_cleanup(qdp, warn);
-        myfree(warn);
-        return -1;
-    }
-    return 0;
+    buf[size-1] = '\0';
+
+    ret = strcmp(buf, cmp);
+    if (ret != 0)
+        msg_warn("bad atom: %s", buf);
+
+    myfree(buf);
+    return ret;
 }
 
 static int
-decode_tuple(struct query_data *qdp, int *index, int num_elements)
+decode_tuple(ei_x_buff *eip, int *index, int num_elements)
 {
     int err;
     int arity;
 
-    err = ei_decode_tuple_header(qdp->res.buff, index, &arity);
+    err = ei_decode_tuple_header(eip->buff, index, &arity);
     if (err < 0) {
-        query_cleanup(qdp, "cannot decode response tuple");
+        msg_warn("cannot decode response tuple");
         return err;
     }
     if (arity != num_elements) {
-        query_cleanup(qdp, "bad response tuple arity");
+        msg_warn("bad response tuple arity");
         return -1;
     }
     return 0;
 }
 
 
-static int
-decode_bitstring(struct query_data *qdp, int *index)
+static char *
+decode_bitstring(ei_x_buff *eip, int *index)
 {
     int err;
     int size;
     long len;
+    char *buf;
 
-    size = alloc_buffer(qdp, index);
-    err = ei_decode_binary(qdp->res.buff, index, qdp->ret, &len);
+    buf = alloc_buffer(eip, index, &size);
+    err = ei_decode_binary(eip->buff, index, buf, &len);
     if (err < 0) {
-        query_cleanup(qdp, "cannot decode response bitstring");
-        return err;
+        msg_warn("cannot decode response bitstring");
+        return NULL;
     }
-    qdp->ret[size-1] = '\0';
-    return size;
+    buf[size-1] = '\0';
+    return buf;
 }
 
 static int
-decode_list(struct query_data *qdp, int *index)
+decode_list(ei_x_buff *eip, int *index)
 {
     int err;
     int arity;
 
-    err = ei_decode_list_header(qdp->res.buff, index, &arity);
+    err = ei_decode_list_header(eip->buff, index, &arity);
     if (err < 0) {
-        query_cleanup(qdp, "cannot decode response list");
+        msg_warn("cannot decode response list");
         return err;
     }
     return arity;
 }
 
-static int
+static char *
 decode_bitstring_list(DICT_ERLANG *dict_erlang, const char *key,
-                      struct query_data *qdp, int *index)
+                      ei_x_buff *eip, int *index)
 {
     int i;
     int arity;
-    static VSTRING *res;
+    static VSTRING *result;
 
-    arity = decode_list(qdp, index);
+    arity = decode_list(eip, index);
     if (arity < 0)
-        return arity;
+        return NULL;
     if (arity == 0) {
         msg_warn("found alias with no destinations");
-        return 0;
+        return NULL;
     }
 
 #define INIT_VSTR(buf, len)           \
@@ -173,57 +155,53 @@ decode_bitstring_list(DICT_ERLANG *dict_erlang, const char *key,
         VSTRING_TERMINATE(buf);       \
     } while (0)
 
-    INIT_VSTR(res, 10);
+    INIT_VSTR(result, 10);
 
     for (i = 0; i < arity; i++) {
-        int size = decode_bitstring(qdp, index);
-        if (size <= 0)
-            return -1;
-        db_common_expand(dict_erlang->ctx, "%s", qdp->ret, key, res, 0);
-        myfree(qdp->ret);
+        char *s = decode_bitstring(eip, index);
+        if (s == NULL)
+            return NULL;
+        db_common_expand(dict_erlang->ctx, "%s", s, key, result, NULL);
+        myfree(s);
     }
-    qdp->ret = vstring_str(res);
-    return arity;
+    return vstring_str(result);
 }
 
 static int
 handle_response(DICT_ERLANG *dict_erlang, const char *key,
-                struct query_data *qdp, char **ret)
+                ei_x_buff *resp, char **res)
 {
     int err, index = 0;
     int res_type, res_size;
 
-    err = ei_get_type(qdp->res.buff, &index, &res_type, &res_size);
+    err = ei_get_type(resp->buff, &index, &res_type, &res_size);
     if (err != 0) {
-        query_cleanup(qdp, "ei_get_type");
+        msg_warn_erl("ei_get_type");
         return err;
     }
 
     switch (res_type) {
     case ERL_ATOM_EXT:
-        err = decode_atom(qdp, &index, "not_found");
-        if (err == -1)
+        err = decode_atom(resp, &index, "not_found");
+        if (err != 0)
             return err;
-        query_cleanup(qdp, NULL);
         return 0;
     case ERL_SMALL_TUPLE_EXT:
     case ERL_LARGE_TUPLE_EXT: {
         int arity;
-        err = decode_tuple(qdp, &index, 2);
+        err = decode_tuple(resp, &index, 2);
         if (err == -1)
             return err;
-        err = decode_atom(qdp, &index, "ok");
-        if (err == -1)
+        err = decode_atom(resp, &index, "ok");
+        if (err != 0)
             return err;
-        arity = decode_bitstring_list(dict_erlang, key, qdp, &index);
-        if (arity <= 0)
-            return arity;
-        *ret = mystrdup(qdp->ret);
-        query_cleanup(qdp, NULL);
+        *res = decode_bitstring_list(dict_erlang, key, resp, &index);
+        if (*res == NULL)
+            return -1;
         return 1;
     }
     default:
-        query_cleanup(qdp, "unexpected response type");
+        msg_warn("unexpected response type");
         return -1;
     }
 
@@ -232,44 +210,47 @@ handle_response(DICT_ERLANG *dict_erlang, const char *key,
 
 static int
 erlang_query(DICT_ERLANG *dict_erlang, const char *key, char *node,
-             char *cookie, char *mod, char *fun, char **ret)
+             char *cookie, char *mod, char *fun, char **res)
 {
     int err, index;
     int res_version, res_type, res_size;
-    char *r;
-    struct query_data qd;
+    int fd;
     ei_cnode ec;
-
-    memset(&qd, 0, sizeof(qd));
-    qd.fd = -1;
-    *ret = NULL;
+    ei_x_buff args;
+    ei_x_buff resp;
 
     err = ei_connect_init(&ec, "dict_erlang", cookie, 0);
     if (err != 0) {
-        query_cleanup(&qd, "ei_connect_init");
-        return err;
-    }
-
-    qd.fd = ei_connect(&ec, node);
-    if (qd.fd < 0) {
-        query_cleanup(&qd, "ei_connect");
+        msg_warn_erl("ei_connect_init");
         return -1;
     }
 
-    ei_x_new(&qd.msg);
-    ei_x_new(&qd.res);
-
-    ei_x_encode_list_header(&qd.msg, 1);
-    ei_x_encode_binary(&qd.msg, key, strlen(key));
-    ei_x_encode_empty_list(&qd.msg);
-
-    err = ei_rpc(&ec, qd.fd, mod, fun, qd.msg.buff, qd.msg.index, &qd.res);
-    if (err == -1) {
-        query_cleanup(&qd, "ei_rpc");
-        return err;
+    fd = ei_connect(&ec, node);
+    if (fd < 0) {
+        msg_warn_erl("ei_connect");
+        return -1;
     }
 
-    return handle_response(dict_erlang, key, &qd, ret);
+    ei_x_new(&args);
+    ei_x_new(&resp);
+
+    ei_x_encode_list_header(&args, 1);
+    ei_x_encode_binary(&args, key, strlen(key));
+    ei_x_encode_empty_list(&args);
+
+    err = ei_rpc(&ec, fd, mod, fun, args.buff, args.index, &resp);
+    if (err == -1) {
+        msg_warn_erl("ei_rpc");
+        goto cleanup;
+    }
+
+    err = handle_response(dict_erlang, key, &resp, res);
+
+cleanup:
+    close(fd);
+    ei_x_free(&args);
+    ei_x_free(&resp);
+    return err;
 }
 
 static const char *
@@ -277,8 +258,6 @@ dict_erlang_lookup(DICT *dict, const char *key)
 {
     int ret;
     char *res;
-    const char *r;
-    static VSTRING *val;
     const char *myname = "dict_erlang_lookup";
     DICT_ERLANG *dict_erlang = (DICT_ERLANG *)dict;
 
@@ -297,15 +276,6 @@ dict_erlang_lookup(DICT *dict, const char *key)
         return 0;
     }
 
-#define INIT_VSTR(buf, len) do { \
-    if (buf == 0) \
-        buf = vstring_alloc(len); \
-    VSTRING_RESET(buf); \
-    VSTRING_TERMINATE(buf); \
-} while (0)
-
-    INIT_VSTR(val, 10);
-
     ret = erlang_query(dict_erlang, key, dict_erlang->node,
                        dict_erlang->cookie, dict_erlang->mod,
                        dict_erlang->fun, &res);
@@ -317,10 +287,7 @@ dict_erlang_lookup(DICT *dict, const char *key)
         /* Not found */
         return NULL;
     case 1:
-        vstring_strcpy(val, res);
-        myfree(res);
-        r = vstring_str(val);
-        return ((dict_errno == 0 && *r) ? r : NULL);
+        return res;
     default:
         msg_warn("unexpected query result");
         return NULL;

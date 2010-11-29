@@ -347,6 +347,10 @@ dict_erlang_close(DICT *dict)
     myfree(dict_erlang->cookie);
     myfree(dict_erlang->mod);
     myfree(dict_erlang->fun);
+    if (dict_erlang->ctx)
+        db_common_free_ctx(dict_erlang->ctx);
+    if (dict->fold_buf)
+        vstring_free(dict->fold_buf);
     dict_free(dict);
 }
 

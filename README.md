@@ -11,19 +11,22 @@ Postfix port.
 Building
 --------
 
-Drop the <tt>dict_erlang.c</tt>, <tt>dict_erlang.h</tt> and <tt>Makefile.in</tt>
-files in <tt>src/global</tt> in the Postfix source. Note: the Makefile is valid
-for Postfix 2.7.0. You may need to adapt it for different versions.
+Drop the `dict_erlang.c`, `dict_erlang.h` and `Makefile.in` files in
+`src/global` in the Postfix source. Note: the Makefile was tested with Postfix
+versions 2.7.0 and 2.7.1 (more specifically, the packages from Ubuntu 10.04 and
+10.10). You may need to adapt it for different versions.
 
-If you're on a Debian-based distribution, copy the files under <tt>debian</tt>
-to the <tt>debian</tt> directory in the Postfix source, then run
+If you're on a Debian-based distribution, copy the files under `debian` to the
+`debian` directory in the Postfix source (the `rules`file will be overwritten),
+then change to the Postfix source directory and run
 
+    $ apt-get build-dep postfix
     $ dpkg-buildpackage -b -uc -us
 
-to generate the <tt>postfix-erlang</tt> package.
+to generate the `postfix-erlang` package.
 
 If you're using the stock Postfix, you'll need to edit the
-<tt>src/global/mail_dict.c</tt> file and add the following code:
+`src/global/mail_dict.c` file and add the following code:
 
      static const DICT_OPEN_INFO dict_open_info[] = {
      ....
@@ -54,9 +57,8 @@ The configuration file requires four parameters:
     module = mydb
     function = aliases
 
-With this setup, postfix-erlang will connect to <tt>mynode@myhost</tt> using
-<tt>chocolate</tt> as the magic cookie, and call <tt>mydb:aliases/1</tt>. The
-argument will be passed to Erlang as a bit string. The specified function
-should return <tt>{ok, [Bitstring, ...]}</tt> on success or <tt>not_found</tt>
-on failure. Currently there is no way to choose different function arguments or
-alternative return formats.
+With this setup, postfix-erlang will connect to `mynode@myhost` using
+`chocolate` as the magic cookie, and call `mydb:aliases/1`. The argument will
+be passed to Erlang as a bit string. The specified function should return
+`{ok, [Bitstring, ...]}` on success or `not_found` on failure. Currently there
+is no way to choose different function arguments or alternative return formats.

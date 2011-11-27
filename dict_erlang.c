@@ -214,7 +214,7 @@ static int
 erlang_query(DICT_ERLANG *dict_erlang, const char *key, ARGV *nodes,
              char *cookie, char *mod, char *fun, char **res)
 {
-    int cur_node, last_node;
+    int cur_node;
     int err, index;
     int res_version, res_type, res_size;
     int fd;
@@ -233,7 +233,6 @@ erlang_query(DICT_ERLANG *dict_erlang, const char *key, ARGV *nodes,
     }
 
     cur_node = dict_erlang->active_node;
-    last_node = (cur_node - 1) % nodes->argc;
     do {
         fd = ei_connect(&ec, nodes->argv[cur_node]);
         if (fd >= 0) {

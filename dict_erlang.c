@@ -4,6 +4,7 @@
 #include <sys/types.h>
 
 #include <err.h>
+#include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -220,8 +221,12 @@ erlang_query(DICT_ERLANG *dict_erlang, const char *key, ARGV *nodes,
     ei_cnode ec;
     ei_x_buff args;
     ei_x_buff resp;
+    VSTRING *node_name;
 
-    err = ei_connect_init(&ec, "dict_erlang", cookie, 0);
+    node_name = vstring_alloc(15);
+    /* Get an "unique" name for the node */
+    vstring_sprintf(node_name, "dict_erlang%u", getpid() % 999);
+    err = ei_connect_init(&ec, vstring_str(node_name), cookie, 0);
     if (err != 0) {
         msg_warn_erl("ei_connect_init");
         return -1;

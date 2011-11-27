@@ -236,12 +236,14 @@ erlang_query(DICT_ERLANG *dict_erlang, const char *key, ARGV *nodes,
             if (msg_verbose)
                 msg_info("connected to node %s", nodes->argv[cur_node]);
             break;
+        } else {
+            msg_warn_erl("ei_connect");
         }
         cur_node = (cur_node + 1) % nodes->argc;
     } while (cur_node != dict_erlang->active_node);
 
     if (fd < 0) {
-        msg_warn_erl("ei_connect");
+        msg_warn_erl("no suitable nodes found");
         return -1;
     }
 

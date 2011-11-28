@@ -17,8 +17,8 @@ versions 2.7.0 and 2.7.1 (more specifically, the packages from Ubuntu 10.04 and
 10.10). You may need to adapt it for different versions.
 
 If you're on a Debian-based distribution, copy the files under `debian` to the
-`debian` directory in the Postfix source (the `rules`file will be overwritten),
-then change to the Postfix source directory and run
+`debian` directory in the Postfix source (the `control` and `rules` files will
+be overwritten), then change to the Postfix source directory and run
 
     $ apt-get build-dep postfix
     $ dpkg-buildpackage -b -uc -us

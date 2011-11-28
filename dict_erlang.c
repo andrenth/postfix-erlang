@@ -215,7 +215,7 @@ erlang_query(DICT_ERLANG *dict_erlang, const char *key, ARGV *nodes,
              char *cookie, char *mod, char *fun, char **res)
 {
     int cur_node;
-    int err, index;
+    int err, index, retries;
     int res_version, res_type, res_size;
     int fd;
     ei_cnode ec;
@@ -232,6 +232,8 @@ erlang_query(DICT_ERLANG *dict_erlang, const char *key, ARGV *nodes,
         return -1;
     }
 
+    retries = 3;
+retry:
     cur_node = dict_erlang->active_node;
     do {
         fd = ei_connect(&ec, nodes->argv[cur_node]);
@@ -240,14 +242,17 @@ erlang_query(DICT_ERLANG *dict_erlang, const char *key, ARGV *nodes,
             if (msg_verbose)
                 msg_info("connected to node %s", nodes->argv[cur_node]);
             break;
-        } else {
-            msg_warn_erl("ei_connect");
         }
         cur_node = (cur_node + 1) % nodes->argc;
     } while (cur_node != dict_erlang->active_node);
 
     if (fd < 0) {
-        msg_warn_erl("no suitable nodes found");
+        if (retries > 0 && erl_errno == EIO) {
+            msg_warn_erl("no suitable nodes found, retrying...");
+            retries--;
+            goto retry;
+        }
+        msg_warn_erl("no suitable nodes found, failing...");
         return -1;
     }
 

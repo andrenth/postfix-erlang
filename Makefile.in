@@ -131,7 +131,7 @@ dict_cdb.o: ../util/dict_cdb.c
 	$(CC) -fPIC $(CFLAGS) -c $?
 
 $(ERLANGSO): dict_erlang.o
-	gcc -shared -Wl,-soname,dict_erlang.so -o $@ $? -L/home/andre/local/lib/erlang/lib/erl_interface-3.7.1/lib -lerl_interface_st -lei_st -L. -lutil -lglobal
+	gcc -shared -Wl,-soname,dict_erlang.so -o $@ $? -L$(shell ls -d `erl -noshell -eval 'io:format("~s~n", [code:lib_dir()]).' -s erlang halt`/erl_interface-* | tail -n1)/lib -lerl_interface_st -lei_st -L. -lutil -lglobal
 
 $(LDAPSO): dict_ldap.o
 	gcc -shared -Wl,-soname,dict_ldap.so -o $@ $? -lldap -llber -L../../lib -lutil -L. -lglobal

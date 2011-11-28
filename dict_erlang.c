@@ -248,11 +248,11 @@ retry:
 
     if (fd < 0) {
         if (retries > 0 && erl_errno == EIO) {
-            msg_warn_erl("no suitable nodes found, retrying...");
+            msg_warn_erl("no suitable nodes found, retrying");
             retries--;
             goto retry;
         }
-        msg_warn_erl("no suitable nodes found, failing...");
+        msg_warn_erl("no suitable nodes found, failing");
         return -1;
     }
 

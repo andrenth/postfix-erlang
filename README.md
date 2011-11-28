@@ -11,10 +11,12 @@ Postfix port.
 Building
 --------
 
-Drop the `dict_erlang.c`, `dict_erlang.h` and `Makefile.in` files in
-`src/global` in the Postfix source. Note: the Makefile was tested with Postfix
-versions 2.7.0 and 2.7.1 (more specifically, the packages from Ubuntu 10.04 and
-10.10). You may need to adapt it for different versions.
+Drop the `dict_erlang.c` and `dict_erlang.h` files in the `src/global` directory
+in the Postfix source. Also copy the appropriate `Makefile.in.2.[78]` file to
+the same directory according to your Postfix version, renaming it to just
+`Makefile.in`. Note: the Makefile was tested with Postfix versions 2.7.0, 2.7.1
+and 2.8.5 (more specifically, the packages from Ubuntu 10.04, 10.10 and 11.10).
+You may need to adapt it for different versions.
 
 If you're on a Debian-based distribution, copy the files under `debian` to the
 `debian` directory in the Postfix source (the `control` and `rules` files will

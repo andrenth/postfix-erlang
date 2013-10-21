@@ -286,7 +286,7 @@ dict_erlang_lookup(DICT *dict, const char *key)
     const char *myname = "dict_erlang_lookup";
     DICT_ERLANG *dict_erlang = (DICT_ERLANG *)dict;
 
-    dict_errno = 0;
+    dict_erlang->dict.error = 0;
 
     if (dict->flags & DICT_FLAG_FOLD_FIX) {
         if (dict->fold_buf == NULL)
@@ -306,7 +306,7 @@ dict_erlang_lookup(DICT *dict, const char *key)
                        dict_erlang->fun, &res);
     switch (ret) {
     case -1:
-        dict_errno = DICT_ERR_RETRY;
+        dict_erlang->dict.error = DICT_ERR_RETRY;
         return NULL;
     case 0:
         /* Not found */

@@ -15,13 +15,14 @@ Drop the `dict_erlang.c` and `dict_erlang.h` files in the `src/global` directory
 in the Postfix source. Also copy the appropriate `Makefile.in.2.[789]` file to
 the same directory according to your Postfix version, renaming it to just
 `Makefile.in`. Note: the Makefile was tested with Postfix versions 2.7.0, 2.7.1,
-2.8.5 and 2.96 (more specifically, the packages from Ubuntu 10.04, 10.10, 11.10
-and 12.04).
+2.8.5 and 2.96 (more specifically, the packages from Ubuntu 10.04, 10.10, 11.10,
+12.04 and 18.04).
 You may need to adapt it for different versions.
 
 If you're on a Debian-based distribution, copy the files under `debian` to the
-`debian` directory in the Postfix source (the `control` and `rules` files will
-be overwritten), then change to the Postfix source directory and run
+`debian` directory in the Postfix source (the `control.x.y` and `rules.x.y`
+files should be renamed to `control` and `rules` to overwrite the standard
+debian files), then change to the Postfix source directory and run
 
     $ apt-get build-dep postfix
     $ apt-get install erlang-dev

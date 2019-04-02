@@ -48,10 +48,13 @@ ifneq (,$(findstring nostrip,$(DEB_BUILD_OPTIONS)))
 STRIP=y
 endif
 
+ERLINTERFACE=$(shell ls -d `erl -noshell -eval 'io:format("~s~n", [code:lib_dir()]).' -s erlang halt`/erl_interface-* | tail -n1)
+
 CCARGS += -DDEBIAN -DHAS_PCRE -DHAS_LDAP -DUSE_LDAP_SASL \
 	-DHAS_SQLITE -DMYORIGIN_FROM_FILE \
 	$(shell getconf LFS_CFLAGS) \
 	-DHAS_CDB \
+	-DHAS_ERLANG -I${ERLINTERFACE}/include \
 	-DHAS_LMDB \
 	-DHAS_MYSQL -I/usr/include/mysql \
 	-DHAS_PGSQL -I`pg_config --includedir` \
@@ -62,9 +65,6 @@ CCARGS += -DDEBIAN -DHAS_PCRE -DHAS_LDAP -DUSE_LDAP_SASL \
 	-DUSE_TLS
 
 AUXLIBS += -lssl -lcrypto -lsasl2 -lpthread
-
-ERLINTERFACE=$(shell ls -d `erl -noshell -eval 'io:format("~s~n", [code:lib_dir()]).' -s erlang halt`/erl_interface-* | tail -n1)
-AUXLIBS_ERLANG = -L$(shell ls -d `erl -noshell -eval 'io:format("~s~n", [code:lib_dir()]).' -s erlang halt`/erl_interface-* | tail -n1)/lib -lerl_interface_st -lei_st
 
 DOCFILES=README_FILES/*_README README_FILES/OVERVIEW COMPATIBILITY PORTING
 TLSDOCFILES=${TLSSRC}/TLS_TODO ${TLSSRC}/TLS_ACKNOWLEDGEMENTS

@@ -70,6 +70,7 @@ decode_atom(ei_x_buff *eip, int *index, const char *cmp)
     err = ei_decode_atom(eip->buff, index, buf);
     if (err != 0) {
         msg_warn("cannot decode atom");
+        myfree(buf);
         return err;
     }
     buf[size-1] = '\0';
@@ -113,6 +114,7 @@ decode_bitstring(ei_x_buff *eip, int *index)
     err = ei_decode_binary(eip->buff, index, buf, &len);
     if (err < 0) {
         msg_warn("cannot decode response bitstring");
+        myfree(buf);
         return NULL;
     }
     buf[size-1] = '\0';

@@ -12,14 +12,15 @@ Building
 --------
 
 Drop the `dict_erlang.c` and `dict_erlang.h` files in the `src/global` directory
-in the Postfix source. Also copy the appropriate `Makefile.in.2.[789]` file to
-the same directory according to your Postfix version, renaming it to just
-`Makefile.in`. For Postfix 3.3, copy the `postfix-files.3.3` file to the `conf`
+in the Postfix source. Also copy the appropriate `Makefile.in.[23].[36789]` file
+to the same directory according to your Postfix version, renaming it to just
+`Makefile.in`. For Postfix 3.[36], copy the `postfix-files.3.[36]` file to the `conf`
 directory in the Postfix source.
 
 Note: the Makefiles above were tested with Postfix versions 2.7.0, 2.7.1,
-2.8.5, 2.96 and 3.3.0 (more specifically, the packages from Ubuntu 10.04, 10.10,
-11.10, 12.04 and 18.04). You may need to adapt it for different versions.
+2.8.5, 2.96, 3.3.0 and 3.6.4 (more specifically, the packages from Ubuntu
+10.04, 10.10, 11.10, 12.04, 18.04 and 22.04). You may need to adapt it for
+different versions.
 
 If you're on a Debian-based distribution, copy the files under `debian` to the
 `debian` directory in the Postfix source (the `control.x.y` and `rules.x.y`

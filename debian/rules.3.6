@@ -1,0 +1,238 @@
+#!/usr/bin/make -f
+# -*- makefile -*-
+# Debianrules for building a Debian package
+# Version 1.5
+#
+# These rules have been specifically designed NOT to require root to
+# run them. At any time root privileges are required, the command to be
+# executed will be made obvious and root's password will be prompted for.
+# Of course, root may still run this and no password will be required.
+#
+# Robert Leslie <rob@mars.org>
+# modified for Postfix by LaMont Jones <lamont@debian.org>
+
+PACKAGE=postfix
+DISTRO:=$(shell (lsb_release -is 2>/dev/null || echo Debian) | sed s:Debian:Debian/GNU:)
+
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all optimize=+lto
+export DEB_LDFLAGS_MAINT_STRIP = -Wl,-Bsymbolic-functions
+DPKG_EXPORT_BUILDFLAGS = 1
+include /usr/share/dpkg/buildflags.mk
+include /usr/share/dpkg/buildtools.mk  # for ${CC}
+include /usr/share/dpkg/pkg-info.mk
+
+package=postfix
+base=debian/$(package)
+docpkg=${package}-doc
+exampledir=${base}-doc/usr/share/doc/${package}
+docdir=${base}-doc/usr/share/doc/$(package)
+chlogdir=${base}/usr/share/doc/$(package)
+sharedir=${base}/usr/share/postfix
+libdir=${base}/usr/lib/postfix
+plibdir=usr/lib/postfix
+sbindir=usr/sbin
+bindir=${base}/usr/bin
+confdir=${base}/etc/postfix
+
+ERLINTERFACE=$(shell ls -d `erl -noshell -eval 'io:format("~s~n", [code:lib_dir()]).' -s erlang halt`/erl_interface-* | tail -n1)
+
+CCARGS += -DDEBIAN \
+	-DHAS_PCRE \
+	-DHAS_LDAP \
+	-DUSE_LDAP_SASL \
+	-DHAS_SQLITE \
+	-DMYORIGIN_FROM_FILE \
+	$(shell getconf LFS_CFLAGS) \
+	-DHAS_CDB \
+	-DHAS_ERLANG -I${ERLINTERFACE}/include \
+	-DHAS_LMDB \
+	-DHAS_MYSQL -I/usr/include/mysql \
+	-DHAS_PGSQL -I`pg_config --includedir` \
+	-DHAS_SQLITE \
+	-DHAS_SSL -I/usr/include/openssl \
+	-DUSE_SASL_AUTH -I/usr/include/sasl \
+	-DUSE_CYRUS_SASL \
+	-DUSE_TLS
+
+AUXLIBS += -lssl -lcrypto -lsasl2 -lpthread
+
+DOCFILES=README_FILES/*_README README_FILES/OVERVIEW COMPATIBILITY PORTING
+TLSDOCFILES=${TLSSRC}/TLS_TODO ${TLSSRC}/TLS_ACKNOWLEDGEMENTS
+
+
+%:
+	dh $@
+
+
+override_dh_auto_configure:
+	${MAKE} makefiles \
+		CCARGS="${CCARGS}" \
+		DEBUG='' \
+		OPT="${CPPFLAGS} ${CFLAGS} ${LDFLAGS}" \
+		PLUGIN_LD="${CC} -shared ${CPPFLAGS} ${CFLAGS} ${LDFLAGS}" \
+		AUXLIBS="${AUXLIBS}" \
+		AUXLIBS_CDB="-lcdb" \
+		AUXLIBS_ERLANG="-L${ERLINTERFACE}/lib -lerl_interface_st -lei_st -L../../lib -L. -lpostfix-util -lpostfix-global" \
+		AUXLIBS_LDAP="-lldap -llber" \
+		AUXLIBS_LMDB="-llmdb" \
+		AUXLIBS_MYSQL="-lmysqlclient" \
+		AUXLIBS_PCRE="-lpcre" \
+		AUXLIBS_PGSQL="-lpq" \
+		AUXLIBS_SQLITE="-lsqlite3" \
+		SHLIB_RPATH="-Wl,-rpath,/usr/lib/postfix ${LDFLAGS}" \
+		shared=yes pie=yes dynamicmaps=yes \
+		daemon_directory=${CUR_DIR}/usr/lib/postfix/sbin \
+		shlibs_directory=${CUR_DIR}/usr/lib/postfix manpage_directory=/usr/share/man \
+		sample_directory=/usr/share/doc/postfix/examples readme_directory=/usr/share/doc/postfix \
+		html_directory=/usr/share/doc/postfix/html
+
+
+override_dh_auto_build:
+	@echo "blhc: ignore-line-regexp: .*for i in single_server\.o multi_server\.o trigger_server\.o master_proto\.o mail_flow\.o event_server\.o dgram_server\.o"
+
+	dh_auto_build
+	# man/Makefile.in does not support parallel builds
+	dh_auto_build --no-parallel -- manpages
+
+	# remove unreproducible paths from makedefs.out
+	#  '-ffile-prefix-map=/tmp/reprotest.DMXrtR/const_build_path/const_build_path=.'
+	#  'SHLIB_ENV = LD_LIBRARY_PATH=/tmp/reprotest.DMXrtR/const_build_path/const_build_path/lib'
+	sed -i 's@\s\+-ffile-prefix-map=\S\+=.\s\+@ @g' conf/makedefs.out
+	sed -i 's@SHLIB_ENV = LD_LIBRARY_PATH=\S\+@SHLIB_ENV = /debian-build-path/lib@g' conf/makedefs.out
+
+	sed "s:@@DISTRO@@:$(DISTRO):g" < debian/main.cf.in > conf/main.cf.debian
+	sed "s:@@DISTRO@@:$(DISTRO):g" < conf/main.cf > conf/main.cf.dist
+
+
+override_dh_auto_install:
+	# do nothing
+
+
+override_dh_install-indep:
+	install -m 0644 html/* $(docdir)/html
+	rm -f $(docdir)/html/Makefile.in
+	dh_installexamples -p ${docpkg} examples/qmail-local examples/smtpd-policy
+	dh_installexamples -p ${docpkg} -Xmain.cf -Xmaster.cf -Xfiles conf/[a-z]*
+	dh_installexamples -p ${docpkg} conf/main.cf.default debian/mailqfmt.pl
+	install -m 0444 RELEASE_NOTES $(docdir)/RELEASE_NOTES
+	install -m 0444 AAAREADME $(docdir)/README
+	for file in */README; do \
+	    install -m 0444 $${file} $(docdir)/README.$${file%/README}; \
+	done
+	if [ ! -f meta/doc.files ] ; then \
+		cd meta && for i in sample readme html ; do \
+			grep $${i} postfix-files >> doc.files ; \
+		done \
+	fi
+	rm -f $(docdir)/README.mantools
+	for file in ${DOCFILES}; do					\
+		install -m 0444 $${file} $(docdir)/$${file##*/};	\
+	done
+	rm -f $(docdir)/ULTRIX_README $(docdir)/MACOSX_README
+	cd meta && for h in ULTRIX MACOSX mantools ; do \
+		grep -v $${h} doc.files > doc.files.$$ ; \
+		mv doc.files.$$ doc.files ; \
+	done
+	mkdir -m 755 -p $(base)-doc/etc/postfix/postfix-files.d
+	install -m 644 meta/doc.files ${base}-doc/etc/postfix/postfix-files.d
+
+
+override_dh_install-arch:
+	install lib/lib* $(libdir)
+	install debian/postfix_groups.pl $(libdir)
+	install -m 0644 meta/postfix-files $(confdir)
+	cd $(confdir) && for i in sample readme html LICENSE ; do \
+		grep -v $${i} postfix-files > postfix-files.$$ ; \
+		mv postfix-files.$$ postfix-files ; \
+	done
+	for j in cdb erlang ldap lmdb mysql pcre pgsql sqlite ; do \
+		mkdir -m 755 -p $(base)-$${j}/etc/postfix/postfix-files.d ; \
+		grep $${j} $(confdir)/postfix-files >> $(base)-$${j}/etc/postfix/postfix-files.d/$${j}.files ; \
+		grep -v $${j} $(confdir)/postfix-files > $(confdir)/postfix-files.$$ ; \
+			mv $(confdir)/postfix-files.$$ $(confdir)/postfix-files ; \
+		install lib/postfix-$${j}.so ${base}-$${j}/${plibdir} ; \
+	done
+	install libexec/[a-z]* ${base}/${plibdir}/sbin
+	install bin/[a-z]* ${base}/${sbindir}
+	# See conf/postfix-files
+	ln ${libdir}/sbin/smtp ${libdir}/sbin//lmtp
+	ln ${libdir}/sbin/qmgr ${libdir}/sbin/nqmgr
+	install debian/postfix-add-filter ${base}/${sbindir}
+	install debian/postfix-add-policy ${base}/${sbindir}
+	cp auxiliary/collate/collate.pl debian/postfix-collate
+	install debian/postfix-collate ${base}/${sbindir}
+	install auxiliary/qshape/qshape.pl ${base}/${sbindir}/qshape
+	install -m 0444 HISTORY $(chlogdir)/changelog
+	ln -s ../sbin/rmail $(bindir)/rmail
+	ln -s ../sbin/sendmail $(bindir)/newaliases
+	ln -s ../sbin/sendmail $(bindir)/mailq
+	ln -s ../sbin/sendmail ${base}/usr/lib/sendmail
+	install -m 0755 conf/postfix-script conf/post-install $(confdir)
+	install -m 0644 conf/makedefs.out $(sharedir)
+	install -m 0644 debian/functions $(sharedir)/postinst.functions
+	install -m 0644 conf/master.cf $(sharedir)/master.cf.dist
+	install -m 0644 conf/main.cf.dist $(sharedir)/main.cf.dist
+	install -m 0644 conf/main.cf.debian $(sharedir)/main.cf.debian
+	install -m 0644 conf/main.cf.tls $(sharedir)/main.cf.tls
+	install -m 0644 meta/dynamicmaps.cf $(sharedir)/dynamicmaps.cf
+	install -m644 debian/postfix.ufw.profile debian/postfix/etc/ufw/applications.d/postfix
+	install -m644 debian/rsyslog.conf debian/postfix/etc/rsyslog.d/postfix.conf
+	install -m644 debian/postfix.insserv.conf debian/postfix/etc/insserv.conf.d/postfix
+	txt2man -t postfix-collate -r postfix-$(DEB_VERSION_UPSTREAM) -d '$(shell date -s @$(SOURCE_DATE_EPOCH))' -s 1 auxiliary/collate/README > ${base}/usr/share/man/man1/postfix-collate.1
+	install man/man1/*.1 ${base}/usr/share/man/man1
+	install man/man5/*.5 ${base}/usr/share/man/man5
+	for j in ldap lmdb mysql pcre pgsql sqlite ; do \
+		mkdir -m 755 -p $(base)-$${j}/usr/share/man/man5 ; \
+		mv ${base}/usr/share/man/man5/$${j}_table.5 ${base}-$${j}/usr/share/man/man5 ; \
+        done
+
+	for f in man/man8/*.8; do \
+	  sed '/^\.TH/s/ 8 / 8postfix /' $${f}>${base}/usr/share/$${f}postfix; \
+	  chmod 644 ${base}/usr/share/$${f}postfix; \
+	done
+	install rmail/rmail.8 debian/*.8 ${base}/usr/share/man/man8
+	gzip -9n ${base}/usr/share/man/man8/*.8postfix
+	ln -sf bounce.8postfix.gz ${base}/usr/share/man/man8/trace.8postfix.gz
+	ln -sf bounce.8postfix.gz ${base}/usr/share/man/man8/defer.8postfix.gz
+
+	install debian/configure-instance.sh $(libdir)
+	install debian/postfix-instance-generator ${base}/lib/systemd/system-generators/
+	install -m 644 debian/postfix@.service ${base}/lib/systemd/system/
+	install debian/ip-up.d ${base}/etc/ppp/ip-up.d/postfix
+	install debian/ip-down.d ${base}/etc/ppp/ip-down.d/postfix
+	install debian/ip-up.d ${base}/etc/network/if-up.d/postfix
+	install debian/ip-down.d ${base}/etc/network/if-down.d/postfix
+	install debian/ip-up.d ${base}/usr/lib/networkd-dispatcher/routable.d/postfix
+	install debian/ip-down.d ${base}/usr/lib/networkd-dispatcher/off.d/postfix
+	install debian/update-libc.d ${base}/etc/resolvconf/update-libc.d/postfix
+	install debian/postfix.lintian-override ${base}/usr/share/lintian/overrides/${package}
+
+	if dpkg-vendor --is ubuntu; then \
+	    install -m 644 -D debian/postfix.apport ${base}/usr/share/apport/package-hooks/postfix.py; \
+	fi
+
+
+execute_before_dh_gencontrol:
+	for i in $$(dh_listpackages) ; do \
+		cat debian/vars.in >> debian/$$i.substvars ; \
+	done
+
+	if [ $(DISTRO) = Ubuntu ] ; then \
+		echo postfix:Provides=default-mta >> debian/postfix.substvars ; \
+	fi
+
+
+override_dh_auto_clean:
+	${MAKE} tidy
+
+
+# Below here is fairly generic really
+
+newtemplate:
+	debconf-updatepo
+
+msgstats:
+	@cd debian/po && for i in *.po; do x=$$(msgfmt --statistics $$i 2>&1); echo $$i $$x; done; rm -f messages.mo *.po~
+
+msg-email:
+	@podebconf-report-po

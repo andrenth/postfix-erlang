@@ -1,0 +1,118 @@
+Source: postfix
+Section: mail
+Priority: optional
+Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
+XSBC-Original-Maintainer: LaMont Jones <lamont@debian.org>
+Uploaders: Scott Kitterman <scott@kitterman.com>
+Standards-Version: 4.6.0
+Rules-Requires-Root: no
+Homepage: http://www.postfix.org
+Build-Depends: debhelper-compat (= 13), po-debconf (>= 0.5.0), groff-base, patch, pkg-config, lsb-release, libdb-dev (>=4.6.19), libldap2-dev (>=2.1), liblmdb-dev, libpcre3-dev, default-libmysqlclient-dev, libssl-dev (>=1.0.2), libsasl2-dev, libpq-dev, libcdb-dev, dpkg-dev (>= 1.16.1~), libsqlite3-dev, html2text, txt2man, libicu-dev, erlang-dev
+Vcs-Browser: https://salsa.debian.org/postfix-team/postfix-dev
+Vcs-Git: https://salsa.debian.org/postfix-team/postfix-dev.git
+
+Package: postfix
+Architecture: any
+Pre-Depends: ${misc:Pre-Depends}
+Depends: ${shlibs:Depends}, ${misc:Depends}, netbase, adduser (>=3.48), dpkg (>= 1.8.3), lsb-base (>=3.0-6), ssl-cert, cpio, e2fsprogs
+Replaces: mail-transport-agent
+Recommends: python3, ca-certificates
+Suggests: procmail, postfix-mysql, postfix-pgsql, postfix-ldap, postfix-pcre, postfix-lmdb, postfix-sqlite, sasl2-bin | dovecot-common, libsasl2-modules | dovecot-common, resolvconf, postfix-cdb, mail-reader, postfix-mta-sts-resolver, ufw, postfix-doc
+Conflicts: mail-transport-agent, smail
+Provides: mail-transport-agent, ${postfix:Provides}
+Description: High-performance mail transport agent
+ ${Description}
+
+Package: postfix-erlang
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, postfix (= ${binary:Version})
+Description: Erlang map support for Postfix
+ ${Description}
+ .
+ This provides support for Erlang maps in Postfix. If you plan to use Erlang
+ maps with Postfix, you need this.
+
+Package: postfix-ldap
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, postfix (= ${binary:Version})
+Replaces: postfix (<< 3.1.3-7~)
+Breaks: postfix (<< 3.1.3-7~)
+Description: LDAP map support for Postfix
+ ${Description}
+ .
+ This provides support for LDAP maps in Postfix. If you plan to use LDAP maps
+ with Postfix, you need this.
+
+Package: postfix-lmdb
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, liblmdb0 (>=0.9.14), postfix (= ${binary:Version})
+Replaces: postfix (<< 3.1.3-7~)
+Breaks: postfix (<< 3.1.3-7~)
+Description: LMDB map support for Postfix
+ ${Description}
+ .
+ This provides support for LMDB maps in Postfix. If you plan to use LMDB maps
+ with Postfix, you need this.
+
+Package: postfix-cdb
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, postfix (= ${binary:Version})
+Breaks: postfix (<< 3.1.3-7~)
+Description: CDB map support for Postfix
+ ${Description}
+ .
+ This provides support for CDB (constant database) maps in Postfix. If you
+ plan to use CDB maps with Postfix, you need this.
+
+Package: postfix-pcre
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, postfix (= ${binary:Version})
+Replaces: postfix (<< 3.1.3-7~)
+Breaks: postfix (<< 3.1.3-7~)
+Description: PCRE map support for Postfix
+ ${Description}
+ .
+ This provides support for PCRE (perl compatible regular expression) maps in
+ Postfix. If you plan to use PCRE maps with Postfix, you need this.
+
+Package: postfix-mysql
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, postfix (= ${binary:Version})
+Replaces: postfix (<< 3.1.3-7~)
+Breaks: postfix (<< 3.1.3-7~)
+Description: MySQL map support for Postfix
+ ${Description}
+ .
+ This provides support for MySQL maps in Postfix. If you plan to use MySQL
+ maps with Postfix, you need this.
+
+Package: postfix-pgsql
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, postfix (= ${binary:Version})
+Replaces: postfix (<< 3.1.3-7~)
+Breaks: postfix (<< 3.1.3-7~)
+Description: PostgreSQL map support for Postfix
+ ${Description}
+ .
+ This provides support for PostgreSQL maps in Postfix. If you plan to use
+ PostgreSQL maps with Postfix, you need this.
+
+Package: postfix-sqlite
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, postfix (= ${binary:Version})
+Replaces: postfix (<< 3.1.3-7~)
+Description: SQLite map support for Postfix
+ ${Description}
+ .
+ This provides support for SQLite maps in Postfix. If you plan to use
+ SQLite maps with Postfix, you need this.
+
+Package: postfix-doc
+Architecture: all
+Section: doc
+Suggests: postfix
+Depends: ${misc:Depends}
+Description: Documentation for Postfix
+ ${Description}
+ .
+ This package provides the documentation for Postfix.

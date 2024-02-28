@@ -72,7 +72,7 @@ override_dh_auto_configure:
 		PLUGIN_LD="${CC} -shared ${CPPFLAGS} ${CFLAGS} ${LDFLAGS}" \
 		AUXLIBS="${AUXLIBS}" \
 		AUXLIBS_CDB="-lcdb" \
-		AUXLIBS_ERLANG="-L${ERLINTERFACE}/lib -lerl_interface_st -lei_st -L../../lib -L. -lpostfix-util -lpostfix-global" \
+		AUXLIBS_ERLANG="-L${ERLINTERFACE}/lib -lei_st -L../../lib -L. -lpostfix-util -lpostfix-global" \
 		AUXLIBS_LDAP="-lldap -llber" \
 		AUXLIBS_LMDB="-llmdb" \
 		AUXLIBS_MYSQL="-lmysqlclient" \

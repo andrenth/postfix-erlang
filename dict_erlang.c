@@ -21,7 +21,6 @@
 #include "stringops.h"
 #include "vstring.h"
 
-#include "erl_interface.h"
 #include "ei.h"
 
 #include "dict_erlang.h"
@@ -377,7 +376,7 @@ dict_erlang_open(const char *key, int open_flags, int dict_flags)
         msg_fatal("%s:%s map requires O_RDONLY access mode",
                   DICT_TYPE_ERLANG, key);
 
-    erl_init(NULL, 0);
+    ei_init();
 
     dict_erlang = (DICT_ERLANG *)dict_alloc(DICT_TYPE_ERLANG, key,
                                             sizeof(DICT_ERLANG));

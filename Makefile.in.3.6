@@ -140,7 +140,7 @@ PLUGIN_MAP_SO = $(LIB_PREFIX)erlang$(LIB_SUFFIX) $(LIB_PREFIX)ldap$(LIB_SUFFIX) 
 	$(LIB_PREFIX)sdbm$(LIB_SUFFIX)
 MAKES	=
 
-AUXLIBS_ERLANG = -L$(shell ls -d `erl -noshell -eval 'io:format("~s~n", [code:lib_dir()]).' -s erlang halt`/erl_interface-* | tail -n1)/lib -lerl_interface_st -lei_st
+AUXLIBS_ERLANG = -L$(shell ls -d `erl -noshell -eval 'io:format("~s~n", [code:lib_dir()]).' -s erlang halt`/erl_interface-* | tail -n1)/lib -lei_st
 
 .c.o:;	$(CC) $(SHLIB_CFLAGS) $(CFLAGS) -c $*.c
 
